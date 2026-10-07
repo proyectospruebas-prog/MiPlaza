@@ -213,7 +213,7 @@
     const out = defaultState();
     if(data){
       for(let i=0;i<TOTAL;i++){
-        const s = data[i];
+        const s = data['spot_' + i];
         if(s && typeof s === 'object'){
           out[i] = {
             occupied: !!s.occupied,
@@ -255,32 +255,6 @@
       render();
     });
   }
-
-  // ===== DIAGNÓSTICO TEMPORAL =====
-  // Registra en consola cada cambio del nodo /spots para identificar quién/qué
-  // resetea los datos. Si ves un reseteo (todas las plazas libres) SIN que nadie
-  // de los que miran esta consola haya pulsado "Liberar", el cambio viene de OTRO
-  // cliente que escribe en la misma base de datos.
-  let __prevSnapshot = null;
-  onValue(spotsRef, (snap) => {
-    const val = snap.val();
-    const occupiedCount = Array.isArray(val) || (val && typeof val === 'object')
-      ? Object.values(val).filter(s => s && s.occupied).length : 0;
-    const uid = (auth.currentUser && auth.currentUser.uid) || 'SIN-SESIÓN';
-    const prevOccupied = __prevSnapshot
-      ? Object.values(__prevSnapshot).filter(s => s && s.occupied).length : 0;
-    if(__prevSnapshot !== null && prevOccupied > 0 && occupiedCount === 0){
-      console.warn('[DIAG] ⚠️ RESETEO DETECTADO a', new Date().toLocaleTimeString('es-ES'),
-        '— pasó de', prevOccupied, 'ocupadas a 0. Mi UID:', uid,
-        '| Si tú no pulsaste Liberar, lo ha reseteado OTRO cliente.');
-    } else {
-      console.log('[DIAG] Cambio en /spots a', new Date().toLocaleTimeString('es-ES'),
-        '— ocupadas:', occupiedCount, '| Mi UID:', uid);
-    }
-    console.log('[DIAG] Valor completo:', JSON.parse(JSON.stringify(val)));
-    __prevSnapshot = val ? JSON.parse(JSON.stringify(val)) : null;
-  });
-  // ===== FIN DIAGNÓSTICO =====
 
   // Monitor de conexión: si el cliente pierde la conexión, bloqueamos escrituras
   // para que no se encolen cambios antiguos que luego pisen los datos del servidor.
@@ -333,12 +307,12 @@
     if(!isValidTime24(until)){ timeInput.focus(); timeInput.style.outline='2px solid var(--artifact-busy)'; return; }
     if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
     // Transacción: decide sobre el valor ACTUAL del servidor, no sobre el estado local.
-    runTransaction(ref(db, 'spots/' + i), (current) => {
+    runTransaction(ref(db, 'spots/spot_' + i), (current) => {
       if(current && current.occupied) return;      // ya ocupada por otro: abortar
       return {occupied:true, name:plate, since:Date.now(), until:until};
     }).then((res) => {
       if(!res.committed){ setConn(true, 'Esa plaza acaba de ocuparla otra persona. Elige otra.'); }
-      else { console.log('[plazas] Ocupada spots/' + i + ' (transacción OK).'); }
+      else { console.log('[plazas] Ocupada spot_' + i + ' (transacción OK).'); }
     }).catch((err) => {
       console.error('[plazas] Error al ocupar:', err);
       setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
@@ -350,7 +324,7 @@
     const v = t ? (t.value || '').trim() : '';
     if(!isValidTime24(v)){ t.focus(); t.style.outline='2px solid var(--artifact-busy)'; return; }
     if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
-    runTransaction(ref(db, 'spots/' + i), (current) => {
+    runTransaction(ref(db, 'spots/spot_' + i), (current) => {
       if(!current || !current.occupied) return;    // libre en el servidor: no tocar
       current.until = v;
       return current;
@@ -361,7 +335,7 @@
   }
   function free(i){
     if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
-    runTransaction(ref(db, 'spots/' + i), () => {
+    runTransaction(ref(db, 'spots/spot_' + i), () => {
       return {occupied:false, name:'', since:null, until:''};
     }).catch((err) => {
       console.error('[plazas] Error al liberar:', err);
