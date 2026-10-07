@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Evita que el navegador sirva una versión antigua cacheada de la página -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Plazas de Carga Eléctrica — Dell</title>
+<style>
+  :root{
+    --artifact-background: var(--theme-background, #f7f8fa);
+    --artifact-surface: var(--theme-background-light, #ffffff);
+    --artifact-text-primary: var(--theme-text-primary, #10151c);
+    --artifact-text-muted: var(--theme-text-secondary, #5b6774);
+    --artifact-accent: var(--theme-primary-highlight, #0076ce);
+    --artifact-accent-soft: rgba(0,118,206,0.10);
+    --artifact-btn-bg: #0066b3;
+    --artifact-btn-text: #ffffff;
+    --artifact-free: #1e9e63;
+    --artifact-free-soft: rgba(30,158,99,0.12);
+    --artifact-busy: #d9480f;
+    --artifact-busy-soft: rgba(217,72,15,0.12);
+    --artifact-border: rgba(16,21,28,0.10);
+    --artifact-shadow: 0 1px 3px rgba(16,21,28,0.08), 0 6px 20px rgba(16,21,28,0.05);
+  }
+  html[data-theme='dark']{
+    --artifact-background: var(--theme-background, #0e1116);
+    --artifact-surface: var(--theme-background-light, #171c23);
+    --artifact-text-primary: var(--theme-text-primary, #eef1f5);
+    --artifact-text-muted: var(--theme-text-secondary, #9aa6b2);
+    --artifact-accent: var(--theme-primary-highlight, #3b9cff);
+    --artifact-accent-soft: rgba(59,156,255,0.16);
+    --artifact-btn-bg: #2f8fff;
+    --artifact-btn-text: #0b0f14;
+    --artifact-free: #35c285;
+    --artifact-free-soft: rgba(53,194,133,0.16);
+    --artifact-busy: #ff7a45;
+    --artifact-busy-soft: rgba(255,122,69,0.16);
+    --artifact-border: rgba(255,255,255,0.12);
+    --artifact-shadow: 0 1px 3px rgba(0,0,0,0.4), 0 6px 20px rgba(0,0,0,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    margin:0; padding:28px 20px 56px;
+    background:var(--artifact-background);
+    color:var(--artifact-text-primary);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1000px;margin:0 auto;}
+  header{margin-bottom:24px;}
+  .eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--artifact-accent);font-weight:700;margin:0 0 6px;}
+  h1{font-size:30px;line-height:1.15;margin:0 0 6px;font-weight:700;}
+  .sub{color:var(--artifact-text-muted);font-size:15px;margin:0;}
+  .status-bar{display:flex;align-items:center;gap:8px;margin:14px 0 0;font-size:13px;color:var(--artifact-text-muted);}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--artifact-text-muted);flex:0 0 auto;}
+  .dot.on{background:var(--artifact-free);}
+  .dot.off{background:var(--artifact-busy);}
+  .summary{display:flex;gap:12px;flex-wrap:wrap;margin:22px 0 26px;}
+  .pill{display:flex;align-items:center;gap:10px;background:var(--artifact-surface);border:1px solid var(--artifact-border);
+    border-radius:12px;padding:12px 18px;box-shadow:var(--artifact-shadow);}
+  .pill .num{font-size:26px;font-weight:700;line-height:1;}
+  .pill .lbl{font-size:13px;color:var(--artifact-text-muted);}
+  .pill.free .num{color:var(--artifact-free);}
+  .pill.busy .num{color:var(--artifact-busy);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px;}
+  .spot{background:var(--artifact-surface);border:1px solid var(--artifact-border);border-radius:16px;
+    padding:18px;box-shadow:var(--artifact-shadow);display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;}
+  .spot::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;}
+  .spot.free::before{background:var(--artifact-free);}
+  .spot.busy::before{background:var(--artifact-busy);}
+  .spot-top{display:flex;align-items:center;justify-content:space-between;}
+  .spot-name{font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px;}
+  .bolt{font-size:16px;}
+  .badge{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;}
+  .badge.free{background:var(--artifact-free-soft);color:var(--artifact-free);}
+  .badge.busy{background:var(--artifact-busy-soft);color:var(--artifact-busy);}
+  .occupant{font-size:14px;line-height:1.4;min-height:38px;color:var(--artifact-text-primary);}
+  .occupant .who{font-weight:600;}
+  .occupant .meta{color:var(--artifact-text-muted);font-size:12.5px;display:block;margin-top:2px;}
+  .empty-msg{color:var(--artifact-text-muted);font-size:13.5px;}
+  .input-row{display:flex;gap:8px;}
+  input[type=text],input[type=time]{min-width:0;padding:9px 11px;border-radius:9px;border:1px solid var(--artifact-border);
+    background:var(--artifact-background);color:var(--artifact-text-primary);font-size:14px;font-family:inherit;}
+  input[type=text]{flex:1;}
+  input[type=time]{flex:0 0 auto;color-scheme:light dark;}
+  input[type=text]:focus,input[type=time]:focus{outline:2px solid var(--artifact-accent);outline-offset:0;border-color:transparent;}
+  .field-label{font-size:12px;color:var(--artifact-text-muted);margin:2px 0 -4px;display:block;}
+  .btn-set{background:var(--artifact-accent-soft);color:var(--artifact-accent);flex:0 0 auto;}
+  .btn-set:hover{filter:brightness(1.05);}
+  button{font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border:none;border-radius:9px;padding:9px 14px;transition:filter .15s ease,transform .05s ease;}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  .btn-occupy{background:var(--artifact-btn-bg);color:var(--artifact-btn-text);width:100%;}
+  .btn-occupy:hover{filter:brightness(1.07);}
+  .btn-go{background:var(--artifact-btn-bg);color:var(--artifact-btn-text);box-shadow:0 1px 2px rgba(0,0,0,0.2);}
+  .btn-go:hover{filter:brightness(1.07);}
+  .btn-free{background:var(--artifact-busy-soft);color:var(--artifact-busy);width:100%;}
+  .btn-free:hover{filter:brightness(1.05);}
+  .footer-note{margin-top:30px;font-size:12.5px;color:var(--artifact-text-muted);line-height:1.6;
+    background:var(--artifact-accent-soft);border:1px solid var(--artifact-border);border-radius:12px;padding:14px 16px;}
+  .footer-note b{color:var(--artifact-text-primary);}
+  @media print{
+    body{margin:0;padding:0.4in 0.6in;background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+    button,.input-row,.status-bar{display:none !important;}
+    .spot{break-inside:avoid;box-shadow:none;border:1px solid rgba(0,0,0,0.1);}
+    .grid{gap:10px !important;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header data-glean-id="header">
+    <p class="eyebrow">Dell · Movilidad eléctrica</p>
+    <h1 data-glean-id="title">Plazas de carga eléctrica</h1>
+    <p class="sub">Introduce la matrícula de tu coche para marcar la plaza como ocupada, y libérala cuando termines. El estado se comparte en tiempo real con todo el equipo.</p>
+    <div class="status-bar" data-glean-id="status"><span class="dot" id="conn-dot"></span><span id="conn-text">Conectando con la base de datos compartida…</span></div>
+  </header>
+
+  <div class="summary" data-glean-id="summary">
+    <div class="pill free"><span class="num" id="count-free">0</span><span class="lbl">Libres</span></div>
+    <div class="pill busy"><span class="num" id="count-busy">0</span><span class="lbl">Ocupadas</span></div>
+    <div class="pill"><span class="num" id="count-total">8</span><span class="lbl">Totales</span></div>
+  </div>
+
+  <div class="grid" id="grid" data-glean-id="grid"></div>
+
+  <p class="footer-note" data-glean-id="note">
+    <b>Estado compartido en tiempo real:</b> esta app guarda el estado de las 8 plazas en una base de datos común de <b>Firebase Realtime Database</b>, por lo que lo que marques aquí se sincroniza automáticamente y al instante con el resto del equipo. Cualquiera que abra esta página verá las mismas plazas libres y ocupadas. Si pierdes la conexión, el indicador de estado de arriba te avisará.
+  </p>
+</div>
+
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-analytics.js";
+  import { getDatabase, ref, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-database.js";
+  import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+   const firebaseConfig = {
+    apiKey: "AIzaSyA630DXXkCK06VM2LSm8GlfXyoxVAEG7G0",
+    authDomain: "ocupatuplaza-66d6e.firebaseapp.com",
+    databaseURL: "https://ocupatuplaza-66d6e-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "ocupatuplaza-66d6e",
+    storageBucket: "ocupatuplaza-66d6e.firebasestorage.app",
+    messagingSenderId: "690383770291",
+    appId: "1:690383770291:web:855316862db42f120ed6c6"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  try { getAnalytics(app); } catch (e) { /* analytics puede estar bloqueado en el iframe; no es crítico */ }
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  const spotsRef = ref(db, 'spots');
+
+  const TOTAL = 8;
+  const LABELS = [54, 55, 56, 60, 61, 86, 87, 88];
+  let state = defaultState();
+  let dbReady = false;   // conexión con la base de datos activa
+  let authReady = false; // sesión anónima iniciada
+
+  // Permitimos escribir solo cuando hay conexión Y sesión anónima activa.
+  function canWrite(){ return dbReady && authReady; }
+
+  // Inicia sesión anónima silenciosa al cargar. Las escrituras quedan
+  // bloqueadas hasta que la sesión esté lista, para poder usar reglas
+  // de seguridad que exijan auth != null.
+  onAuthStateChanged(auth, (user) => {
+    authReady = !!user;
+    if(user){
+      console.log('[plazas] Sesión anónima activa:', user.uid);
+      attachSpotsListener();   // adjuntamos el listener SOLO cuando ya hay sesión
+    } else {
+      authReady = false;
+      setConn(false, 'Iniciando sesión segura…');
+    }
+    render();
+  });
+  signInAnonymously(auth).catch((err) => {
+    authReady = false;
+    console.error('[plazas] Error de autenticación anónima:', err);
+    setConn(false, 'No se pudo iniciar sesión segura (activa Anonymous Auth en Firebase): ' + (err && err.message ? err.message : 'error'));
+    render();
+  });
+
+  function defaultState(){
+    return Array.from({length:TOTAL}, () => ({occupied:false, name:'', since:null, until:''}));
+  }
+
+  // Guarda lo que el usuario está escribiendo en las plazas libres para
+  // que un re-render (por eventos de Firebase o de conexión) no lo borre.
+  const drafts = new Map();
+  function saveDrafts(){
+    for(let i=0;i<TOTAL;i++){
+      if(state[i] && state[i].occupied){ drafts.delete(i); continue; }
+      const nameEl = document.getElementById('name-'+i);
+      const untilEl = document.getElementById('until-'+i);
+      if(nameEl || untilEl){
+        drafts.set(i, {
+          name: nameEl ? nameEl.value : '',
+          until: untilEl ? untilEl.value : ''
+        });
+      }
+    }
+  }
+
+  function normalize(data){
+    const out = defaultState();
+    if(data){
+      for(let i=0;i<TOTAL;i++){
+        const s = data[i];
+        if(s && typeof s === 'object'){
+          out[i] = {
+            occupied: !!s.occupied,
+            name: s.name || '',
+            since: (typeof s.since === 'number') ? s.since : null,
+            until: s.until || ''
+          };
+        }
+      }
+    }
+    return out;
+  }
+
+  // Escuchar cambios en tiempo real desde la base de datos compartida.
+  // IMPORTANTE: con reglas que exigen auth, si adjuntamos el listener antes de
+  // que la sesión esté lista, Firebase devuelve permission_denied y CANCELA el
+  // listener (no se reintenta solo). Por eso solo lo adjuntamos tras el login,
+  // y una sola vez.
+  let spotsListenerAttached = false;
+  function attachSpotsListener(){
+    if(spotsListenerAttached) return;
+    spotsListenerAttached = true;
+    onValue(spotsRef, (snapshot) => {
+      dbReady = true;
+      state = snapshot.exists() ? normalize(snapshot.val()) : defaultState();
+      setConn(true, 'Conectado · estado compartido en tiempo real');
+      render();
+    }, (err) => {
+      // La lectura fue cancelada (p. ej. permisos). Permitimos reintentar
+      // cuando vuelva a haber sesión en lugar de quedarnos sin listener.
+      spotsListenerAttached = false;
+      dbReady = false;
+      const msg = (err && err.message) ? err.message : 'error desconocido';
+      if(/permission/i.test(msg)){
+        setConn(false, 'Sin permiso para leer /spots. Revisa que Anonymous Auth esté habilitado y que las reglas permitan "auth != null".');
+      } else {
+        setConn(false, 'Sin conexión con la base de datos: ' + msg);
+      }
+      render();
+    });
+  }
+
+  // ===== DIAGNÓSTICO TEMPORAL =====
+  // Registra en consola cada cambio del nodo /spots para identificar quién/qué
+  // resetea los datos. Si ves un reseteo (todas las plazas libres) SIN que nadie
+  // de los que miran esta consola haya pulsado "Liberar", el cambio viene de OTRO
+  // cliente que escribe en la misma base de datos.
+  let __prevSnapshot = null;
+  onValue(spotsRef, (snap) => {
+    const val = snap.val();
+    const occupiedCount = Array.isArray(val) || (val && typeof val === 'object')
+      ? Object.values(val).filter(s => s && s.occupied).length : 0;
+    const uid = (auth.currentUser && auth.currentUser.uid) || 'SIN-SESIÓN';
+    const prevOccupied = __prevSnapshot
+      ? Object.values(__prevSnapshot).filter(s => s && s.occupied).length : 0;
+    if(__prevSnapshot !== null && prevOccupied > 0 && occupiedCount === 0){
+      console.warn('[DIAG] ⚠️ RESETEO DETECTADO a', new Date().toLocaleTimeString('es-ES'),
+        '— pasó de', prevOccupied, 'ocupadas a 0. Mi UID:', uid,
+        '| Si tú no pulsaste Liberar, lo ha reseteado OTRO cliente.');
+    } else {
+      console.log('[DIAG] Cambio en /spots a', new Date().toLocaleTimeString('es-ES'),
+        '— ocupadas:', occupiedCount, '| Mi UID:', uid);
+    }
+    console.log('[DIAG] Valor completo:', JSON.parse(JSON.stringify(val)));
+    __prevSnapshot = val ? JSON.parse(JSON.stringify(val)) : null;
+  });
+  // ===== FIN DIAGNÓSTICO =====
+
+  // Monitor de conexión: si el cliente pierde la conexión, bloqueamos escrituras
+  // para que no se encolen cambios antiguos que luego pisen los datos del servidor.
+  const connectedRef = ref(db, '.info/connected');
+  onValue(connectedRef, (snap) => {
+    const online = snap.val() === true;
+    if(!online){
+      dbReady = false;
+      // No llamamos a render() aquí: reconstruir el grid borraría lo que el
+      // usuario está escribiendo. Solo refrescamos el indicador de estado
+      // y el estado deshabilitado de los botones "Ocupar".
+      setConn(false, 'Conexión perdida — reconectando… (escritura bloqueada para no pisar datos)');
+      document.querySelectorAll('.btn-go').forEach(b => { b.disabled = true; });
+    } else {
+      document.querySelectorAll('.btn-go').forEach(b => { b.disabled = !canWrite(); });
+      console.log('[plazas] Conexión activa con el servidor.');
+    }
+  });
+
+  // NOTA: no existe ninguna escritura del estado local completo al servidor.
+  // Solo se escribe mediante transacciones por plaza (occupy / setUntil / free),
+  // que siempre deciden sobre el valor ACTUAL del servidor. Esto evita que un
+  // cliente con estado local obsoleto o por defecto pueda pisar los datos.
+
+  function setConn(ok, msg){
+    const dot = document.getElementById('conn-dot');
+    const txt = document.getElementById('conn-text');
+    if(dot) dot.className = 'dot ' + (ok ? 'on' : 'off');
+    if(txt) txt.textContent = msg;
+  }
+
+  function fmtTime(ts){
+    const d = new Date(ts);
+    return d.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}) + ' · ' +
+           d.toLocaleDateString('es-ES',{day:'2-digit',month:'short'});
+  }
+
+  function isValidTime24(v){ return /^([01]\d|2[0-3]):[0-5]\d$/.test(v); }
+  function autoTime(el){
+    let d = el.value.replace(/\D/g,'').slice(0,4);
+    el.value = d.length > 2 ? d.slice(0,2) + ':' + d.slice(2) : d;
+    el.style.outline='';
+  }
+  function occupy(i){
+    const input = document.getElementById('name-'+i);
+    const timeInput = document.getElementById('until-'+i);
+    const plate = (input.value || '').trim().toUpperCase();
+    const until = timeInput ? (timeInput.value || '').trim() : '';
+    if(!plate){ input.focus(); input.style.outline='2px solid var(--artifact-busy)'; return; }
+    if(!isValidTime24(until)){ timeInput.focus(); timeInput.style.outline='2px solid var(--artifact-busy)'; return; }
+    if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
+    // Transacción: decide sobre el valor ACTUAL del servidor, no sobre el estado local.
+    runTransaction(ref(db, 'spots/' + i), (current) => {
+      if(current && current.occupied) return;      // ya ocupada por otro: abortar
+      return {occupied:true, name:plate, since:Date.now(), until:until};
+    }).then((res) => {
+      if(!res.committed){ setConn(true, 'Esa plaza acaba de ocuparla otra persona. Elige otra.'); }
+      else { console.log('[plazas] Ocupada spots/' + i + ' (transacción OK).'); }
+    }).catch((err) => {
+      console.error('[plazas] Error al ocupar:', err);
+      setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
+    });
+  }
+  function setUntil(i){
+    const t = document.getElementById('eUntil-'+i);
+    if(!state[i] || !state[i].occupied) return;
+    const v = t ? (t.value || '').trim() : '';
+    if(!isValidTime24(v)){ t.focus(); t.style.outline='2px solid var(--artifact-busy)'; return; }
+    if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
+    runTransaction(ref(db, 'spots/' + i), (current) => {
+      if(!current || !current.occupied) return;    // libre en el servidor: no tocar
+      current.until = v;
+      return current;
+    }).catch((err) => {
+      console.error('[plazas] Error al actualizar hora:', err);
+      setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
+    });
+  }
+  function free(i){
+    if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
+    runTransaction(ref(db, 'spots/' + i), () => {
+      return {occupied:false, name:'', since:null, until:''};
+    }).catch((err) => {
+      console.error('[plazas] Error al liberar:', err);
+      setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
+    });
+  }
+
+  function render(){
+    saveDrafts();
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    let busy = 0;
+    state.forEach((s, i) => {
+      if(s.occupied) busy++;
+      const card = document.createElement('div');
+      card.className = 'spot ' + (s.occupied ? 'busy' : 'free');
+      card.dataset.gleanId = 'spot-' + LABELS[i];
+      if(s.occupied){
+        card.innerHTML =
+          '<div class="spot-top"><div class="spot-name"><span class="bolt">⚡</span>Plaza ' + LABELS[i] + '</div>' +
+          '<span class="badge busy">Ocupada</span></div>' +
+          '<div class="occupant"><span class="who">' + escapeHtml(s.name) + '</span>' +
+          '<span class="meta">Desde las ' + fmtTime(s.since) +
+            (s.until ? ' · Salida prevista: ' + escapeHtml(s.until) : '') + '</span></div>';
+        const urow = document.createElement('div');
+        urow.className = 'input-row';
+        const ulbl = document.createElement('label');
+        ulbl.className = 'field-label'; ulbl.textContent = 'Hora de salida'; ulbl.setAttribute('for','eUntil-'+i);
+        const ut = document.createElement('input');
+        ut.type='text'; ut.id='eUntil-'+i; ut.value = s.until || ''; ut.placeholder='HH:MM'; ut.maxLength=5; ut.inputMode='numeric';
+        ut.addEventListener('input', ()=> autoTime(ut));
+        ut.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); setUntil(i); } });
+        const uset = document.createElement('button');
+        uset.className='btn-set'; uset.type='button'; uset.textContent = s.until ? 'Actualizar' : 'Guardar';
+        uset.addEventListener('click', () => setUntil(i));
+        urow.appendChild(ut); urow.appendChild(uset);
+        const btn = document.createElement('button');
+        btn.className = 'btn-free'; btn.type='button'; btn.textContent = 'Liberar plaza';
+        btn.addEventListener('click', () => free(i));
+        card.appendChild(ulbl); card.appendChild(urow); card.appendChild(btn);
+      } else {
+        card.innerHTML =
+          '<div class="spot-top"><div class="spot-name"><span class="bolt">⚡</span>Plaza ' + LABELS[i] + '</div>' +
+          '<span class="badge free">Libre</span></div>' +
+          '<div class="occupant"><span class="empty-msg">Disponible — introduce tu matrícula para ocuparla.</span></div>';
+        const row = document.createElement('div');
+        row.className = 'input-row';
+        const draft = drafts.get(i) || {};
+        const input = document.createElement('input');
+        input.type='text'; input.id='name-'+i; input.placeholder='Matrícula del coche'; input.maxLength=12;
+        input.style.textTransform='uppercase';
+        input.value = draft.name || '';
+        input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); occupy(i); } });
+        input.addEventListener('input', ()=>{ input.style.outline=''; });
+        const go = document.createElement('button');
+        go.className='btn-go'; go.type='button'; go.textContent='Ocupar';
+        go.disabled = !canWrite();
+        go.addEventListener('click', ()=> occupy(i));
+        row.appendChild(input); row.appendChild(go);
+        const trow = document.createElement('div');
+        trow.className = 'input-row';
+        const tlbl = document.createElement('label');
+        tlbl.className='field-label'; tlbl.textContent='Hora de salida (obligatoria, formato 24h HH:MM)'; tlbl.setAttribute('for','until-'+i);
+        const tin = document.createElement('input');
+        tin.type='text'; tin.id='until-'+i; tin.placeholder='HH:MM'; tin.maxLength=5; tin.inputMode='numeric';
+        tin.value = draft.until || '';
+        tin.addEventListener('input', ()=> autoTime(tin));
+        tin.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); occupy(i); } });
+        trow.appendChild(tin);
+        card.appendChild(row); card.appendChild(tlbl); card.appendChild(trow);
+      }
+      grid.appendChild(card);
+    });
+    document.getElementById('count-busy').textContent = busy;
+    document.getElementById('count-free').textContent = TOTAL - busy;
+    document.getElementById('count-total').textContent = TOTAL;
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  render();
+
+  // PDF export
+  if(window.GleanBridge){
+    window.GleanBridge.postMessage({
+      actionId:'export-pdf', type:'glean-add-menu', metadata:{label:'Exportar como PDF', icon:'export'}
+    });
+    window.GleanBridge.onMessage('action', function(data){
+      if(data.actionId==='export-pdf') window.print();
+    });
+  }
+</script>
+</body>
+</html>
