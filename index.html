@@ -102,9 +102,14 @@
   .footer-note{margin-top:30px;font-size:12.5px;color:var(--artifact-text-muted);line-height:1.6;
     background:var(--artifact-accent-soft);border:1px solid var(--artifact-border);border-radius:12px;padding:14px 16px;}
   .footer-note b{color:var(--artifact-text-primary);}
+  .admin-bar{display:flex;align-items:center;gap:8px;margin:12px 0 0;flex-wrap:wrap;}
+  .admin-input{padding:7px 10px;border-radius:8px;border:1px solid var(--artifact-border);background:var(--artifact-background);color:var(--artifact-text-primary);font-size:13px;font-family:inherit;width:120px;}
+  .btn-admin{background:var(--artifact-accent-soft);color:var(--artifact-accent);padding:7px 12px;font-size:13px;}
+  .btn-admin-danger{background:var(--artifact-busy-soft);color:var(--artifact-busy);padding:7px 12px;font-size:13px;}
+  .admin-state{font-size:12.5px;color:var(--artifact-text-muted);}
   @media print{
     body{margin:0;padding:0.4in 0.6in;background:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
-    button,.input-row,.status-bar{display:none !important;}
+    button,.input-row,.status-bar,.admin-bar{display:none !important;}
     .spot{break-inside:avoid;box-shadow:none;border:1px solid rgba(0,0,0,0.1);}
     .grid{gap:10px !important;}
   }
@@ -118,6 +123,12 @@
     <h1 data-glean-id="title">Plazas de carga eléctrica</h1>
     <p class="sub">Introduce la matrícula de tu coche para marcar la plaza como ocupada, y libérala cuando termines. El estado se comparte en tiempo real con todo el equipo.</p>
     <div class="status-bar" data-glean-id="status"><span class="dot" id="conn-dot"></span><span id="conn-text">Conectando con la base de datos compartida…</span></div>
+    <div class="admin-bar" data-glean-id="admin">
+      <input type="password" id="admin-pin" placeholder="PIN admin" maxlength="12" class="admin-input">
+      <button type="button" id="admin-btn" class="btn-admin">Entrar como admin</button>
+      <button type="button" id="admin-free-all" class="btn-admin-danger" style="display:none;">Liberar todas</button>
+      <span id="admin-state" class="admin-state"></span>
+    </div>
   </header>
 
   <div class="summary" data-glean-id="summary">
@@ -164,6 +175,10 @@
   let state = defaultState();
   let dbReady = false;   // conexión con la base de datos activa
   let authReady = false; // sesión anónima iniciada
+  // ⚠️ Al ser una app de cliente, este PIN es visible en el código fuente. Cámbialo
+  // por el que quieras; sirve como barrera cómoda, no como seguridad fuerte.
+  const ADMIN_PIN = '2468';
+  let adminUnlocked = false; // modo admin activo SOLO en este dispositivo
 
   // Permitimos escribir solo cuando hay conexión Y sesión anónima activa.
   function canWrite(){ return dbReady && authReady; }
@@ -364,22 +379,79 @@
       setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
     });
   }
-  function free(i){
+  // Libera una plaza. Se autoriza si: eres el dueño (mismo dispositivo),
+  // el modo admin está desbloqueado, o reintroduces la matrícula correcta.
+  function free(i, opts){
+    opts = opts || {};
     if(!canWrite()){ setConn(false, authReady ? 'Sin conexión — intento bloqueado para no pisar datos.' : 'Iniciando sesión segura — espera un momento.'); return; }
     const uid = auth.currentUser && auth.currentUser.uid;
+    const typedPlate = (opts.plate || '').trim().toUpperCase();
     runTransaction(ref(db, 'spots/' + i), (current) => {
       if(!current || !current.occupied) return;              // ya libre: no tocar
-      if(current.ownerUid !== uid){                          // no eres el dueño: abortar
-        setConn(true, 'Solo quien ocupó la plaza puede liberarla.');
-        return;
-      }
+      const isOwner = current.ownerUid && current.ownerUid === uid;
+      const plateOk = typedPlate && current.name && current.name.toUpperCase() === typedPlate;
+      if(!adminUnlocked && !isOwner && !plateOk) return;     // no autorizado: abortar sin cambios
       return {occupied:false, name:'', since:null, until:''};
     }).then((res) => {
-      if(!res.committed){ console.log('[plazas] Liberar spots/' + i + ' abortado (no eres el dueño o ya estaba libre).'); }
+      if(res.committed){
+        setConn(true, 'Plaza liberada.');
+      } else {
+        setConn(true, (opts.plate !== undefined)
+          ? 'La matrícula no coincide con la de esta plaza.'
+          : 'No se pudo liberar (ya estaba libre o no autorizado).');
+      }
     }).catch((err) => {
       console.error('[plazas] Error al liberar:', err);
       setConn(false, 'No se pudo guardar: ' + (err && err.message ? err.message : 'error'));
     });
+  }
+
+  // Libera reintroduciendo la matrícula (para la misma persona desde otro dispositivo).
+  function freeByPlate(i){
+    const inp = document.getElementById('plate-free-' + i);
+    const plate = inp ? inp.value : '';
+    if(!plate.trim()){ if(inp){ inp.focus(); inp.style.outline='2px solid var(--artifact-busy)'; } return; }
+    free(i, {plate: plate});
+  }
+
+  // Admin: libera todas las plazas ocupadas de una vez.
+  function freeAll(){
+    if(!adminUnlocked){ return; }
+    if(!canWrite()){ setConn(false, 'Sin conexión — intento bloqueado.'); return; }
+    for(let i=0;i<TOTAL;i++){
+      runTransaction(ref(db, 'spots/' + i), (current) => {
+        if(!current || !current.occupied) return;
+        return {occupied:false, name:'', since:null, until:''};
+      }).catch((err)=> console.error('[plazas] Error al liberar todas:', err));
+    }
+    setConn(true, 'Todas las plazas liberadas (admin).');
+  }
+
+  // Conecta los controles del modo admin (PIN visible en cliente: barrera cómoda, no seguridad fuerte).
+  function setupAdmin(){
+    const pinEl = document.getElementById('admin-pin');
+    const btn = document.getElementById('admin-btn');
+    const freeAllBtn = document.getElementById('admin-free-all');
+    const stateEl = document.getElementById('admin-state');
+    if(!pinEl || !btn || !freeAllBtn || !stateEl) return;
+    function refreshAdminUI(){
+      if(adminUnlocked){
+        pinEl.style.display='none'; btn.textContent='Salir admin';
+        freeAllBtn.style.display=''; stateEl.textContent='Modo admin activo';
+      } else {
+        pinEl.style.display=''; btn.textContent='Entrar como admin';
+        freeAllBtn.style.display='none'; stateEl.textContent='';
+      }
+    }
+    btn.addEventListener('click', ()=>{
+      if(adminUnlocked){ adminUnlocked=false; pinEl.value=''; refreshAdminUI(); render(); return; }
+      if((pinEl.value||'') === ADMIN_PIN){ adminUnlocked=true; pinEl.value=''; refreshAdminUI(); render(); }
+      else { stateEl.textContent='PIN incorrecto'; pinEl.style.outline='2px solid var(--artifact-busy)'; }
+    });
+    pinEl.addEventListener('input', ()=>{ pinEl.style.outline=''; });
+    pinEl.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); btn.click(); } });
+    freeAllBtn.addEventListener('click', freeAll);
+    refreshAdminUI();
   }
 
   function render(){
@@ -413,14 +485,34 @@
         uset.disabled = !ownsForUntil;
         if(ownsForUntil){ uset.addEventListener('click', () => setUntil(i)); }
         urow.appendChild(ut); urow.appendChild(uset);
-        const btn = document.createElement('button');
-        btn.className = 'btn-free'; btn.type='button';
         const myUid = auth.currentUser && auth.currentUser.uid;
         const isOwner = !!myUid && s.ownerUid === myUid;
-        btn.textContent = isOwner ? 'Liberar plaza' : 'Ocupada por otra persona';
-        btn.disabled = !isOwner;
-        if(isOwner){ btn.addEventListener('click', () => free(i)); }
-        card.appendChild(ulbl); card.appendChild(urow); card.appendChild(btn);
+        card.appendChild(ulbl); card.appendChild(urow);
+        if(isOwner || adminUnlocked){
+          const btn = document.createElement('button');
+          btn.className = 'btn-free'; btn.type='button';
+          btn.textContent = (adminUnlocked && !isOwner) ? 'Liberar (admin)' : 'Liberar plaza';
+          btn.addEventListener('click', () => free(i));
+          card.appendChild(btn);
+        } else {
+          // Misma persona desde otro dispositivo: libera reintroduciendo su matrícula.
+          const flbl = document.createElement('label');
+          flbl.className='field-label'; flbl.textContent='¿Es tu plaza? Introduce tu matrícula para liberarla';
+          flbl.setAttribute('for','plate-free-'+i);
+          const frow = document.createElement('div');
+          frow.className = 'input-row';
+          const pin = document.createElement('input');
+          pin.type='text'; pin.id='plate-free-'+i; pin.placeholder='Matrícula'; pin.maxLength=12;
+          pin.style.textTransform='uppercase';
+          pin.addEventListener('input', ()=>{ pin.style.outline=''; });
+          pin.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); freeByPlate(i); } });
+          const fbtn = document.createElement('button');
+          fbtn.className='btn-free'; fbtn.type='button'; fbtn.textContent='Liberar';
+          fbtn.style.width='auto'; fbtn.style.flex='0 0 auto';
+          fbtn.addEventListener('click', ()=> freeByPlate(i));
+          frow.appendChild(pin); frow.appendChild(fbtn);
+          card.appendChild(flbl); card.appendChild(frow);
+        }
       } else {
         card.innerHTML =
           '<div class="spot-top"><div class="spot-name"><span class="bolt">⚡</span>Plaza ' + LABELS[i] + '</div>' +
@@ -464,6 +556,7 @@
   }
 
   render();
+  setupAdmin();
 
   // PDF export
   if(window.GleanBridge){
